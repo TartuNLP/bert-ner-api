@@ -1,28 +1,35 @@
 import logging
-from nauron import Response, Nazgul, MQConsumer
-from transformers import BertTokenizer, BertForTokenClassification
-import torch
-import stanza
-import pika, json
-from typing import Dict, Any
 from collections import Counter
 
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(name)s : %(message)s")
-logging.getLogger("pika").setLevel(level=logging.WARNING)
+from typing import Dict, Any
 
-logger = logging.getLogger('mynazgul')
+import torch
+import stanza
+from transformers import BertTokenizer, BertForTokenClassification
 
+from nauron import Response, Nazgul, MQConsumer
+from marshmallow import Schema, fields, ValidationError
+import pika
+
+import settings
+
+logger = logging.getLogger(settings.MQ_EXCHANGE)
+
+class BertRequestSchema(Schema):
+    text = fields.Str()
 
 class BertNerNazgul(Nazgul):
-    def __init__(self, stanza_location: str = 'stanza_model', bert_location: str = 'ner_bert'):
+    def __init__(self, stanza_location: str = "models/stanza_model", bert_location: str = "models/ner_bert"):
+        self.schema = BertRequestSchema
         self.tokenizer = stanza.Pipeline(lang='et', dir=stanza_location, processors='tokenize', logging_level='WARN')
         self.bertner = BertForTokenClassification.from_pretrained(bert_location, return_dict=True)
         self.labelmap = {0: 'B-LOC', 1: 'B-ORG', 2: 'B-PER', 3: 'I-LOC', 4: 'I-ORG', 5: 'I-PER', 6: 'O'}
         self.bert_tokenizer = BertTokenizer.from_pretrained(bert_location)
 
-    def process_request(self, request: Dict[str, Any]) -> Response:
+    def process_request(self, body: Dict[str, Any], _: str = None) -> Response:
         try:
-            doc = self.tokenizer(request["text"])
+            body = self.schema().load(body)
+            doc = self.tokenizer(body["text"])
             extracted_data = doc.to_dict()
             sentences = []
             for sentence in extracted_data:
@@ -40,6 +47,8 @@ class BertNerNazgul(Nazgul):
                     words.append(subresult)
                 tagged_sentences.append(words)
             return Response({"result":tagged_sentences}, mimetype="application/json")
+        except ValidationError as error:
+            return Response(content=error.messages, http_status_code=400)
         except ValueError:
             return Response(http_status_code=413,
                             content='Input is too long.')
@@ -71,17 +80,26 @@ class BertNerNazgul(Nazgul):
             aligned_predictions.append(group)
             ptr += size
         predicted_labels = []
+        previous = 'O'
         for token, prediction_group in zip(sentence, aligned_predictions):
             label = Counter(prediction_group).most_common(1)[0][0]
+            base = label.split('-')[-1]
+            if (previous == 'O' or previous.split('-')[-1] != base) and label.startswith('I'):
+                label = 'B-' + base
+            previous = label
             predicted_labels.append(label)
         return predicted_labels
 
 
 if __name__ == "__main__":
-    mq_parameters = pika.ConnectionParameters(host='localhost',
-                                              port=5672,
-                                              credentials=pika.credentials.PlainCredentials(username='guest',
-                                                                                            password='guest'))
+    mq_parameters = pika.ConnectionParameters(host=settings.MQ_HOST,
+                                              port=settings.MQ_PORT,
+                                              credentials=pika.credentials.PlainCredentials(
+                                                  username=settings.MQ_USERNAME,
+                                                  password=settings.MQ_PASSWORD))
 
-    service = MQConsumer(BertNerNazgul(), mq_parameters, 'bertner', queue_name='default')
+    service = MQConsumer(nazgul=BertNerNazgul(),
+                         connection_parameters=mq_parameters,
+                         exchange_name=settings.MQ_EXCHANGE,
+                         nazgul_name=settings.MQ_QUEUE_NAME)
     service.start()
