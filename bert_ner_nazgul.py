@@ -101,5 +101,5 @@ if __name__ == "__main__":
     service = MQConsumer(nazgul=BertNerNazgul(),
                          connection_parameters=mq_parameters,
                          exchange_name=settings.MQ_EXCHANGE,
-                         nazgul_name=settings.MQ_QUEUE_NAME)
+                         queue_name=settings.MQ_QUEUE_NAME)
     service.start()
