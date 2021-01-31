@@ -5,10 +5,9 @@ FROM continuumio/miniconda3
 COPY environment.yml .
 RUN conda env create -f environment.yml -n nazgul && rm environment.yml
 
-# TODO remove installation via dubmodule
 SHELL ["conda", "run", "-n", "nazgul", "/bin/bash", "-c"]
-COPY nauron nauron
-RUN pip install -e nauron/
+# TODO remove cloning
+RUN git clone https://github.com/TartuNLP/nauron.git && pip install -e nauron/
 # Restore original shell and define entrypoint
 SHELL ["/bin/bash", "-c"]
 
