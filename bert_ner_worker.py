@@ -10,6 +10,8 @@ from transformers import BertTokenizer, BertForTokenClassification
 from nauron import Response, Worker
 from marshmallow import Schema, fields, ValidationError
 
+import settings
+
 logger = logging.getLogger("ner")
 
 
@@ -88,3 +90,12 @@ class BertNerWorker(Worker):
             previous = label
             predicted_labels.append(label)
         return predicted_labels
+
+
+if __name__ == '__main__':
+    worker = BertNerWorker(stanza_location=settings.STANZA_PATH,
+                           bert_location=settings.BERT_PATH)
+    worker.start(connection_parameters=settings.MQ_PARAMS,
+                 service_name=settings.SERVICE_NAME,
+                 routing_key=settings.ROUTING_KEY,
+                 alt_routes=settings.ALT_ROUTES)

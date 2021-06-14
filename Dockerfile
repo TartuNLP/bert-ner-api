@@ -10,7 +10,5 @@ WORKDIR /app
 VOLUME /app/models
 
 COPY . .
-EXPOSE 5000
 
-ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "nauron", "gunicorn", "--config", "config/gunicorn.ini.py", \
-"--log-config", "config/logging.ini", "app:app"]
+ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "nauron", "python", "bert_ner_worker.py"]
