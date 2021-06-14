@@ -7,7 +7,6 @@ RUN conda env create -f environment.yml -n nauron && rm environment.yml
 
 WORKDIR /app/logs
 WORKDIR /app
-VOLUME /app/models
 
 COPY . .
 EXPOSE 5000

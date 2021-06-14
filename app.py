@@ -6,18 +6,14 @@ from webargs.flaskparser import use_args
 from nauron import Nauron
 
 import settings
-from bert_ner_worker import BertNerWorker
 
 logger = logging.getLogger("gunicorn.error")
 
 # Define application
-app = Nauron(__name__)
+app = Nauron(__name__, mq_parameters=settings.MQ_PARAMS, timeout=settings.MESSAGE_TIMEOUT)
 CORS(app)
 
-ner = app.add_service(name='ner')
-
-ner.add_worker(worker=BertNerWorker(stanza_location=settings.STANZA_PATH,
-                                    bert_location=settings.BERT_PATH))
+ner = app.add_service(name='ner', remote=True)
 
 BODY = {
     "text": fields.Str(required=True)
