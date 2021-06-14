@@ -1,21 +1,16 @@
 FROM continuumio/miniconda3
+RUN apt-get update && apt-get install -y build-essential
 
-# Create conda environment and configure the shell to use it
-# Info: https://pythonspeed.com/articles/activate-conda-dockerfile/
+# Create conda environment
 COPY environment.yml .
-RUN conda env create -f environment.yml -n nazgul && rm environment.yml
+RUN conda env create -f environment.yml -n nauron && rm environment.yml
 
-SHELL ["conda", "run", "-n", "nazgul", "/bin/bash", "-c"]
-# TODO remove cloning
-RUN git clone https://github.com/TartuNLP/nauron.git && pip install -e nauron/
-# Restore original shell and define entrypoint
-SHELL ["/bin/bash", "-c"]
-
-WORKDIR /var/log/nazgul
-WORKDIR /nazgul
-VOLUME /nazgul/models
+WORKDIR /app/logs
+WORKDIR /app
+VOLUME /app/models
 
 COPY . .
+EXPOSE 5000
 
-ENTRYPOINT conda run --no-capture-output -n nazgul \
-python bert_ner_nazgul.py
+ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "nauron", "gunicorn", "--config", "config/gunicorn.ini.py", \
+"--log-config", "config/logging.ini", "app:app"]

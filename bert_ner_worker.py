@@ -1,34 +1,33 @@
 import logging
 from collections import Counter
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import torch
 import stanza
 from transformers import BertTokenizer, BertForTokenClassification
 
-from nauron import Response, Nazgul, MQConsumer
+from nauron import Response, Worker
 from marshmallow import Schema, fields, ValidationError
-import pika
 
-import settings
+logger = logging.getLogger("ner")
 
-logger = logging.getLogger(settings.MQ_EXCHANGE)
 
-class BertRequestSchema(Schema):
-    text = fields.Str()
+class BertNerWorker(Worker):
+    def __init__(self, stanza_location: str, bert_location: str):
+        class BertRequestSchema(Schema):
+            text = fields.Str()
 
-class BertNerNazgul(Nazgul):
-    def __init__(self, stanza_location: str = "models/stanza_model", bert_location: str = "models/ner_bert"):
         self.schema = BertRequestSchema
         self.tokenizer = stanza.Pipeline(lang='et', dir=stanza_location, processors='tokenize', logging_level='WARN')
         self.bertner = BertForTokenClassification.from_pretrained(bert_location, return_dict=True)
         self.labelmap = {0: 'B-LOC', 1: 'B-ORG', 2: 'B-PER', 3: 'I-LOC', 4: 'I-ORG', 5: 'I-PER', 6: 'O'}
         self.bert_tokenizer = BertTokenizer.from_pretrained(bert_location)
 
-    def process_request(self, body: Dict[str, Any], _: str = None) -> Response:
+    def process_request(self, body: Dict[str, Any], _: Optional[str] = None) -> Response:
         try:
             body = self.schema().load(body)
+            logger.info("Request: {}".format(body))
             doc = self.tokenizer(body["text"])
             extracted_data = doc.to_dict()
             sentences = []
@@ -40,20 +39,20 @@ class BertNerNazgul(Nazgul):
                 sentences.append(sentence_collected)
             tagged_sentences = []
             for sentence in sentences:
-                entities = self.predict(sentence)
+                entities = self._predict(sentence)
                 words = []
                 for word, entity in zip(sentence, entities):
                     subresult = {'word': word, 'ner': entity}
                     words.append(subresult)
                 tagged_sentences.append(words)
-            return Response({"result":tagged_sentences}, mimetype="application/json")
+            logger.info("Response: {}".format(tagged_sentences))
+            return Response({"result": tagged_sentences}, mimetype="application/json")
         except ValidationError as error:
             return Response(content=error.messages, http_status_code=400)
         except ValueError:
-            return Response(http_status_code=413,
-                            content='Input is too long.')
+            return Response(http_status_code=413, content='Input is too long.')
 
-    def predict(self, sentence: list) -> list:
+    def _predict(self, sentence: list) -> list:
         grouped_inputs = [torch.LongTensor([self.bert_tokenizer.cls_token_id])]
         subtokens_per_token = []
         for token in sentence:
@@ -89,17 +88,3 @@ class BertNerNazgul(Nazgul):
             previous = label
             predicted_labels.append(label)
         return predicted_labels
-
-
-if __name__ == "__main__":
-    mq_parameters = pika.ConnectionParameters(host=settings.MQ_HOST,
-                                              port=settings.MQ_PORT,
-                                              credentials=pika.credentials.PlainCredentials(
-                                                  username=settings.MQ_USERNAME,
-                                                  password=settings.MQ_PASSWORD))
-
-    service = MQConsumer(nazgul=BertNerNazgul(),
-                         connection_parameters=mq_parameters,
-                         exchange_name=settings.MQ_EXCHANGE,
-                         queue_name=settings.MQ_QUEUE_NAME)
-    service.start()

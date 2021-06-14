@@ -1,14 +1,10 @@
-import logging.config
-from os import environ
-from dotenv import load_dotenv
+from pathlib import Path
+from configparser import ConfigParser
 
-logging.config.fileConfig('config/logging.conf')
+_config = ConfigParser()
+_config.read("config/config.ini")
 
-load_dotenv("config/.env")
+STANZA_PATH = _config['models']['stanza']
+BERT_PATH = _config['models']['bert']
 
-MQ_HOST = environ.get('MQ_HOST')
-MQ_PORT = environ.get('MQ_PORT')
-MQ_USERNAME = environ.get('MQ_USERNAME')
-MQ_PASSWORD = environ.get('MQ_PASSWORD')
-MQ_EXCHANGE = environ.get('MQ_EXCHANGE')
-MQ_QUEUE_NAME = environ.get('MQ_QUEUE_NAME')
+Path("logs/").parents[0].mkdir(parents=True, exist_ok=True)

@@ -1,2 +1,5 @@
-/.idea/
-/models/
+config/.env
+.idea/
+models/
+logs/
+__pycache__/
