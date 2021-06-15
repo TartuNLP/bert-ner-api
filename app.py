@@ -24,7 +24,7 @@ BODY = {
 }
 
 
-@app.post('/bert/v1/ner')
+@app.post('/bert/ner/v1')
 @use_args(BODY, location="json")
 def predict(body):
     response = ner.process_request(content=body)
