@@ -1,0 +1,12 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.0.1
+torchvision
+torchaudio
+transformers~=4.32.0
+stanza~=1.5.0
+pydantic~=2.3.0
+fastapi~=0.101.1
+uvicorn~=0.23.2
+pyyaml==6.0.1
+pydantic-settings==2.0.3
+email-validator==2.0.0

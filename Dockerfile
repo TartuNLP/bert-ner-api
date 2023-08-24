@@ -1,16 +1,30 @@
-FROM continuumio/miniconda3
-RUN apt-get update && apt-get install -y build-essential
+FROM python:3.10
 
-# Create conda environment
-COPY environment.yml .
-RUN conda env create -f environment.yml -n nauron && rm environment.yml
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y \
+        gcc \
+        g++ \
+        libffi-dev \
+        musl-dev
 
-WORKDIR /app/logs
+ENV PYTHONIOENCODING=utf-8
 WORKDIR /app
-VOLUME /app/models
 
-COPY . .
-EXPOSE 5000
+RUN adduser --system --group --home /home/app app && chown -R app:app /app
 
-ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "nauron", "gunicorn", "--config", "config/gunicorn.ini.py", \
-"--log-config", "config/logging.ini", "app:app"]
+USER app
+ENV PATH="/home/app/.local/bin:${PATH}"
+
+COPY --chown=app:app requirements.txt .
+RUN pip install --user -r requirements.txt && \
+    rm requirements.txt
+
+COPY --chown=app:app . .
+
+ARG API_VERSION
+ENV API_VERSION=$API_VERSION
+
+EXPOSE 8000
+
+ENTRYPOINT ["uvicorn", "app:app", "--host", "0.0.0.0", "--proxy-headers", "--log-config", "config/logging.prod.ini"]

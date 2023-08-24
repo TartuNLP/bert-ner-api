@@ -1,0 +1,2 @@
+stanza_path: models/stanza_model
+ner_hf: tartuNLP/EstBERT_NER
