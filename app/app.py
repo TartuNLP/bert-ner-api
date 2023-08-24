@@ -17,7 +17,7 @@ app = FastAPI(title="Named Entity Recognition (NER) API",
               terms_of_service="https://www.tartunlp.ai/andmekaitsetingimused",
               license_info={
                   "name": "MIT license",
-                  "url": "https://github.com/TartuNLP/bert-ner-service/blob/main/LICENSE"
+                  "url": "https://github.com/TartuNLP/bert-ner-api/blob/main/LICENSE"
               },
               contact={
                   "name": "TartuNLP",
