@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 
-from . import api_settings
+from . import api_settings, health_router
 from .bert_ner import v1_router
 
 logger = logging.getLogger(__name__)
@@ -42,10 +42,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={"detail": exc_str}
     )
 
-@app.get('/health/readiness', include_in_schema=False)
-@app.get('/health/startup', include_in_schema=False)
-@app.get('/health/liveness', include_in_schema=False)
-async def health_check():
-    return "OK"
 
 app.include_router(v1_router, prefix="/v1")
+app.include_router(health_router, prefix="/health", include_in_schema=False)
